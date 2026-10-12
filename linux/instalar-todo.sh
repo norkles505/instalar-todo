@@ -33,7 +33,7 @@ quiero() {
         case "$SELECCION" in *",$1,"*) return 0 ;; *) return 1 ;; esac
     fi
     case "$1" in
-        brave|firefox|zoom|vlc|obs|audacity|kdenlive|gimp|lmms|archivos) [ "$SOLO_DEV" -eq 0 ] ;;
+        brave|firefox|zoom|vlc|obs|audacity|kdenlive|concat|gimp|lmms|archivos) [ "$SOLO_DEV" -eq 0 ] ;;
         *) return 0 ;;
     esac
 }
@@ -291,6 +291,33 @@ fi
 if quiero kdenlive; then
     componente kdenlive "Kdenlive (reemplazo de CapCut)"
     apt_instalar "Kdenlive (reemplazo de CapCut)" kdenlive
+fi
+# Concat: editor de video open source (alternativa a CapCut). Viene ya compilado: se baja el .deb
+# de la ultima version publicada en GitHub Releases (el nombre del archivo se busca solo).
+if quiero concat; then
+    componente concat "Concat (editor de video, alternativa a CapCut)"
+    instalar_concat() {
+        if ls /usr/share/applications/*[Cc]oncat*.desktop >/dev/null 2>&1; then
+            echo "Concat ya esta instalado"; return 0
+        fi
+        local patron url deb
+        case "$(dpkg --print-architecture)" in
+            amd64) patron='(x86_64|amd64).*\.deb$' ;;
+            arm64) patron='(aarch64|arm64).*\.deb$' ;;
+            *) echo "Arquitectura no soportada por este instalador de Concat."; return 1 ;;
+        esac
+        url="$(curl -fsSL https://api.github.com/repos/jub0t/Concat/releases/latest \
+            | grep -oE '"browser_download_url": *"[^"]+"' | cut -d'"' -f4 \
+            | grep -iE "$patron" | head -n1)"
+        if [ -z "$url" ]; then
+            echo "No encontre el .deb en https://github.com/jub0t/Concat/releases"
+            echo "Descargalo a mano e instala con: sudo apt install ./archivo.deb"
+            return 1
+        fi
+        deb="/tmp/$(basename "$url")"
+        curl -fL --progress-bar -o "$deb" "$url" && sudo apt-get install -y "$deb"
+    }
+    paso "Concat (.deb de GitHub Releases)" instalar_concat
 fi
 if quiero gimp; then
     componente gimp "GIMP + Krita (reemplazo de Photoshop)"
@@ -618,6 +645,7 @@ FIN
 fi
 cat <<'FIN'
   - Restaurar tus carpetas: proyectos, Documentos/MCP y ~/.android/debug.keystore
+    (si hiciste un respaldo antes de formatear: ./respaldo.sh restaurar ARCHIVO.tar.gz)
   - Sin version para Linux: Photoshop, FL Studio, CapCut, Riot/Valorant, Enterprise Architect, MuseHub,
     VirtualTablet Server. Hay alternativas (GIMP/Krita, LMMS, Kdenlive). FL Studio y
     Photoshop se pueden intentar con Wine/Bottles, sin garantias.

@@ -165,6 +165,10 @@ CATALOGO = [
         ("obs", "OBS Studio", "Para grabar la pantalla y transmitir en vivo.", []),
         ("audacity", "Audacity", "Editor de audio: grabar, cortar y limpiar sonido.", []),
         ("kdenlive", "Kdenlive", "Editor de video (reemplazo de CapCut).", []),
+        ("concat", "Concat",
+         "Editor de video gratis y de código abierto, otra alternativa a CapCut: subtítulos "
+         "automáticos, quitar fondo, efectos y exportación hasta 4K, sin marca de agua y sin "
+         "internet. Instala el .deb de su última versión de GitHub. Está en beta.", []),
         ("gimp", "GIMP + Krita",
          "Edición de imágenes (GIMP) y pintura digital (Krita). Reemplazo de Photoshop.", []),
         ("lmms", "LMMS", "Para producir música (reemplazo de FL Studio).", []),
@@ -187,7 +191,7 @@ CATALOGO = [
 NOMBRES = {i[0]: i[1] for _, its in CATALOGO for i in its}
 REQS = {i[0]: i[3] for _, its in CATALOGO for i in its}
 ORDEN = [i[0] for _, its in CATALOGO for i in its]
-EXTRAS = {"brave", "firefox", "zoom", "vlc", "obs", "audacity", "kdenlive", "gimp", "lmms", "archivos"}
+EXTRAS = {"brave", "firefox", "zoom", "vlc", "obs", "audacity", "kdenlive", "concat", "gimp", "lmms", "archivos"}
 NOMBRES["base"] = "Base del sistema"
 
 
@@ -263,6 +267,7 @@ def detectar_instalados(proyectos_dir):
         "obs": lambda: _cmd("obs"),
         "audacity": lambda: _cmd("audacity"),
         "kdenlive": lambda: _cmd("kdenlive"),
+        "concat": lambda: _cmd("concat", "Concat") or _glob("/usr/share/applications/*[Cc]oncat*.desktop"),
         "gimp": lambda: _cmd("gimp"),
         "lmms": lambda: _cmd("lmms"),
         "archivos": lambda: _cmd("7z"),

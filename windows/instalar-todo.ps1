@@ -7,11 +7,14 @@
 #   3. powershell -ExecutionPolicy Bypass -File .\instalar-todo.ps1
 #      Solo programas de desarrollo (sin Photoshop, FL Studio, etc.):
 #      powershell -ExecutionPolicy Bypass -File .\instalar-todo.ps1 -SoloDesarrollo
+#      Sin descargar los proyectos de GitHub (norkles505 y las alternativas de ArtCraft):
+#      powershell -ExecutionPolicy Bypass -File .\instalar-todo.ps1 -SinProyectos
+#      (Para guardar y restaurar tus claves y ajustes al formatear: respaldo.ps1)
 #
 # Al final muestra una lista de lo que fallo, para instalarlo a mano.
 # Basado en el inventario de la PC del 11/10/2026.
 # =====================================================================
-param([switch]$SoloDesarrollo)
+param([switch]$SoloDesarrollo, [switch]$SinProyectos)
 
 $esAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $esAdmin) {
@@ -185,8 +188,63 @@ if (Test-Path $code) {
 # ---------------------------------------------------------------------
 # 6. Resumen
 # ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Rust estable + proyectos de GitHub (se clonan en <Escritorio>\proyectos)
+# Va antes de los ajustes, que buscan drawengine ahi.
+# Si cambias esta lista, cambia tambien GH_PROYECTOS en linux\instalar-todo.sh.
+# Los de storytold son las alternativas open source de ArtCraft: solo se clona el codigo,
+# se compilan a mano con cargo (Rustup + Visual Studio Build Tools C++ ya se instalan arriba).
+# ---------------------------------------------------------------------
+Refrescar-Path
+$proyDir = Join-Path ([Environment]::GetFolderPath('Desktop')) 'proyectos'
+
+if (Get-Command rustup -ErrorAction SilentlyContinue) {
+    Write-Host "`n=== Rust: toolchain estable ===" -ForegroundColor Yellow
+    try {
+        rustup default stable
+        if ($LASTEXITCODE -ne 0) { $fallos.Add('Rust: rustup default stable (hazlo a mano si cargo no funciona)') }
+    } catch { $fallos.Add('Rust: rustup default stable') }
+}
+
+if (-not $SinProyectos) {
+    Write-Host "`n=== Proyectos de GitHub ===" -ForegroundColor Yellow
+    $ghProyectos = @(
+        'norkles505/paintcraft', 'norkles505/meshcraft', 'norkles505/keyboardmovil', 'norkles505/YTDownloader',
+        'norkles505/ar-drawing', 'norkles505/paintcraft-PC', 'norkles505/drawengine', 'norkles505/dont-cut-that',
+        'norkles505/vs-code-mcp', 'norkles505/nodo-capture', 'norkles505/instalar-todo', 'norkles505/dontcutthat',
+        'storytold/photocraft', 'storytold/vectorcraft', 'storytold/filmcraft', 'storytold/lightcraft',
+        'storytold/pdfcraft', 'storytold/effectcraft', 'storytold/designcraft', 'storytold/wordcraft',
+        'storytold/soundcraft', 'storytold/deckcraft', 'storytold/cadcraft', 'storytold/gridcraft'
+    )
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        $fallos.Add('Proyectos de GitHub (git no esta instalado)')
+    } else {
+        New-Item -ItemType Directory $proyDir -Force | Out-Null
+        # Si un repo es privado o no existe, que falle en vez de quedarse pidiendo usuario
+        $env:GIT_TERMINAL_PROMPT = '0'
+        foreach ($p in $ghProyectos) {
+            $repo = $p.Split('/')[1]
+            $destino = Join-Path $proyDir $repo
+            if (Test-Path (Join-Path $destino '.git')) {
+                Write-Host "Ya esta descargado, no se toca: $destino"
+                continue
+            }
+            if (Test-Path $destino) {
+                Write-Host "Ya existe $destino pero no es un repositorio git. No se toca." -ForegroundColor DarkYellow
+                $fallos.Add("Clonar $p (la carpeta ya existe y no es un repositorio)")
+                continue
+            }
+            Write-Host ">> Clonar $p" -ForegroundColor Cyan
+            git clone "https://github.com/$p.git" $destino
+            if ($LASTEXITCODE -ne 0) { $fallos.Add("Clonar $p") }
+        }
+    }
+} else {
+    Write-Host "`n=== Proyectos de GitHub: OMITIDO (-SinProyectos) ===" -ForegroundColor DarkGray
+}
+
 Write-Host "`n=== Ajustes de los proyectos ===" -ForegroundColor Yellow
-$proy = @('C:\Users\HP\Desktop\proyectos', (Split-Path -Parent $PSScriptRoot)) | Where-Object { $_ -and (Test-Path "$_\drawengine") } | Select-Object -First 1
+$proy = @($proyDir, 'C:\Users\HP\Desktop\proyectos', (Split-Path -Parent $PSScriptRoot)) | Where-Object { $_ -and (Test-Path "$_\drawengine") } | Select-Object -First 1
 if (-not $proy) {
     Write-Host "No encontre la carpeta proyectos (con drawengine dentro). Restaurala y vuelve a ejecutar este script." -ForegroundColor Red
     $fallos.Add('Carpeta proyectos no encontrada (no se hizo el venv ni el ajuste del JDK)')
@@ -261,6 +319,7 @@ PENDIENTE A MANO (no se puede automatizar):
       Ant Landscape, Edit Mesh Tools, LoopTools, Node Tree Screenshot, Sapling Tree Gen, Draw Hair, Ucupaint
     y el addon del puente MCP de Blender (desde Documents\MCP).
   - Restaurar tus carpetas: proyectos, Documents\MCP y C:\Users\HP\.android\debug.keystore
+    (si hiciste un respaldo antes de formatear: .\respaldo.ps1 restaurar ARCHIVO.tar.gz)
   - Photoshop (desde Creative Cloud), FL Studio y sus plugins (FL Cloud), Riot/Valorant,
     VirtualTablet Server, Enterprise Architect (trial) y MuseHub: instalar desde sus paginas.
   - Drivers: Windows Update + Intel Graphics + Realtek Audio.

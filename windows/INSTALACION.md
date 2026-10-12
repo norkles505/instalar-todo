@@ -7,12 +7,36 @@ El proyecto tiene dos partes:
 - `windows-agent/`: el agente de Windows (.NET), que recibe teclas/mouse y manda la pantalla.
 
 ## 1. Antes de resetear (respaldo)
-- [ ] Copiar toda la carpeta `C:\Users\HP\Desktop\proyectos` (si hay repos de git, hacer push antes).
-- [ ] Copiar `C:\Users\HP\.android\debug.keystore` (firma de la app de debug; ver punto 5).
-- [ ] Anotar la config de VS Code (o activar Settings Sync) y la lista de extensiones.
+Lo más fácil es `respaldo.ps1`, que guarda tus datos personales en un USB (no hace falta ser Administrador):
+
+```powershell
+# ANTES de resetear, con el USB conectado (el destino NO debe ser el disco que vas a formatear)
+powershell -ExecutionPolicy Bypass -File .\respaldo.ps1 respaldar E:\ [-ConProyectos]
+
+# DESPUÉS de resetear y de correr el instalador
+powershell -ExecutionPolicy Bypass -File .\respaldo.ps1 restaurar E:\respaldo-AAAA-MM-DD_HHMM.tar.gz
+```
+
+- **Qué guarda:** claves SSH y GPG, `.gitconfig`, `C:\Users\HP\.android\debug.keystore`, ajustes, atajos y snippets de VS Code, la lista de extensiones, la config de Claude Desktop y `Documents\MCP`. Con `-ConProyectos` también `Desktop\proyectos` (sin `node_modules`, `target`, `venv`, `.venv`, `__pycache__` ni `.gradle`).
+- **Es seguro:** respaldar solo lee y copia. Al restaurar, si un archivo ya existe y es distinto, el actual queda guardado como `archivo.bak1`; los proyectos que ya tengas no se tocan.
+- **Cuidado:** el respaldo incluye tus claves privadas. Guárdalo en un lugar de confianza.
+- **No es intercambiable** con el `respaldo.sh` de Linux: cada uno guarda las rutas de su sistema.
+
+Lo que el respaldo no cubre (hazlo a mano):
+- [ ] Hacer push de los repos con cambios sin subir (si no usas `-ConProyectos`, el instalador vuelve a clonar los de GitHub, pero lo que no subiste se pierde).
 - [ ] Guardar `android-app\wifi_device.txt` y `android-app\local.properties` si quieres conservarlos (se pueden recrear).
 
 ## 2. Instalar en la PC nueva
+
+**Automático:** doble clic en `INSTALAR-TODO.bat` (pide permiso de administrador solo) y reinicia la PC al terminar. Instala todo lo de la tabla de abajo y más (Python, Node, Blender, Unity, programas extra), y al final muestra una lista de lo que falló. Si quieres opciones, abre PowerShell como Administrador y corre:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\instalar-todo.ps1                   # todo
+powershell -ExecutionPolicy Bypass -File .\instalar-todo.ps1 -SoloDesarrollo   # sin Photoshop, FL Studio, etc.
+powershell -ExecutionPolicy Bypass -File .\instalar-todo.ps1 -SinProyectos     # sin descargar los proyectos de GitHub
+```
+
+Lo mínimo para este proyecto, por si lo instalas a mano:
 
 | Qué | Versión / detalle | Para qué |
 |---|---|---|
@@ -21,6 +45,13 @@ El proyecto tiene dos partes:
 | **Android SDK** | En `C:\Android\android-sdk`, con `platforms;android-34`, `build-tools` y `platform-tools` (adb) | Compilar e instalar la app en el celular |
 | **VS Code** | Con las extensiones que uses (Kotlin, C#, etc.) | Editar |
 | **Git** | Última | Control de versiones |
+
+Además, el instalador deja listo esto (no hace falta para el agente ni la app Android):
+
+| Qué | Detalle |
+|---|---|
+| **Rust** | `Rustup` + `rustup default stable`. Para compilar necesita **Visual Studio Build Tools (C++)**, que el instalador también pone |
+| **Proyectos de GitHub** | Se clonan en `Escritorio\proyectos`: 12 repos tuyos (norkles505) + 12 alternativas de ArtCraft (storytold: PhotoCraft, WordCraft, etc.). Solo se descarga el código; las de ArtCraft las compilas tú con `cargo run --release`. Lo ya descargado no se toca. Se omiten con `-SinProyectos` |
 
 Gradle **8.7**, Android Gradle Plugin **8.5.0** y Kotlin **1.9.24** NO se instalan a mano: el wrapper (`gradlew.bat`) los descarga la primera vez. Hace falta internet.
 
@@ -51,3 +82,4 @@ Valores del proyecto que dependen de la PC:
 - *No conecta*: revisar firewall (red privada) y que ambos estén en la misma WiFi.
 - *Gradle falla*: confirmar JDK 17 y la ruta `sdk.dir`.
 - *Win+V (portapapeles) no abre nada*: activar el historial del portapapeles en Configuración → Sistema → Portapapeles.
+- *`cargo` no se encuentra o falla al compilar una app Rust*: cierra y abre la consola (para que cargue el PATH) y corre `rustup default stable`. Si el error habla de `link.exe`, falta Visual Studio Build Tools (C++): vuelve a correr el instalador.
