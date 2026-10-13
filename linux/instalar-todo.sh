@@ -188,7 +188,9 @@ fi
 if quiero node; then
     componente node "Node.js (LTS) + npm"
     instalar_node() {
-        curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+        # Se baja a un archivo (no "curl | sudo bash") para que un fallo de descarga no pase como exito
+        curl -fsSL https://deb.nodesource.com/setup_lts.x -o /tmp/nodesource-setup.sh || return 1
+        sudo -E bash /tmp/nodesource-setup.sh
         sudo apt-get install -y nodejs
     }
     paso "Node.js (LTS)" instalar_node
@@ -203,7 +205,9 @@ fi
 if quiero rust; then
     componente rust "Rust (rustup)"
     instalar_rust() {
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        # Se baja a un archivo (no "curl | sh") para que un fallo de descarga no pase como exito
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o /tmp/rustup-init.sh || return 1
+        sh /tmp/rustup-init.sh -y
     }
     paso "Rustup" instalar_rust
 fi
@@ -257,8 +261,13 @@ if quiero brave; then
     componente brave "Brave"
     instalar_brave() {
         if command -v brave-browser >/dev/null 2>&1; then echo "Brave ya esta instalado"; return 0; fi
-        curl -fsS https://dsl.brave.com/install.sh | sh && return 0
-        # Si la descarga falla (sin internet / DNS), se usa Flatpak
+        # Se baja a un archivo y despues se ejecuta (no "curl | sh"): con un pipe, si curl fallaba,
+        # sh recibia una entrada vacia, salia "bien" y nunca se llegaba al respaldo de Flatpak.
+        if curl -fsSL https://dl.brave.com/install.sh -o /tmp/brave-install.sh \
+                && bash /tmp/brave-install.sh && command -v brave-browser >/dev/null 2>&1; then
+            return 0
+        fi
+        # Si la descarga o el instalador fallan (sin internet / DNS), se usa Flatpak
         sudo flatpak install -y --noninteractive flathub com.brave.Browser
     }
     paso "Brave" instalar_brave
@@ -561,7 +570,9 @@ fi
 if quiero blendermcp; then
     componente blendermcp "Puente blender-mcp (uv)"
     instalar_blender_mcp() {
-        curl -LsSf https://astral.sh/uv/install.sh | sh
+        # Se baja a un archivo (no "curl | sh") para que un fallo de descarga no pase como exito
+        curl -LsSf https://astral.sh/uv/install.sh -o /tmp/uv-install.sh || return 1
+        sh /tmp/uv-install.sh
         local bm
         # Busca blender-mcp en Documentos/MCP o en proyectos (prefiere la subcarpeta linux/ si existe)
         bm="$(find "$MCP_DIR" "$DESKTOP/proyectos" -maxdepth 4 -type d -path '*blender-mcp/linux' 2>/dev/null | head -n1)"
