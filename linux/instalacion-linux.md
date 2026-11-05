@@ -40,7 +40,7 @@ Después de terminar: **cerrar sesión y volver a entrar** (para el PATH y los g
 | Unity Hub | Repositorio apt oficial de Unity | |
 | Rust | `rustup` (incluye `cargo`) | `~/.cargo/bin` |
 | Librerías para compilar apps Rust | apt: `libxkbcommon-dev`, `libwayland-dev`, `libx11-dev`, `libxrandr-dev`, `libxi-dev`, `libxcursor-dev`, `libgl1-mesa-dev`, `libgtk-3-dev`, `libfontconfig1-dev`, `libfreetype-dev`, `libasound2-dev`, `libssl-dev`, `libudev-dev` | Sin ellas `cargo` se detiene con errores tipo «no encuentro xkbcommon». Se marcan solas junto con las apps de ArtCraft |
-| Proyectos de GitHub | `git clone` en `~/Escritorio/proyectos` | 12 repos tuyos (norkles505) + 12 alternativas de ArtCraft (storytold: PhotoCraft, WordCraft, etc.). Solo se descarga el código; las de ArtCraft las compilas tú con `cargo run --release`. Lo ya descargado no se toca |
+| Proyectos de GitHub | `git clone` en `~/Escritorio/proyectos` y `~/Escritorio/programas` | 12 repos tuyos (norkles505) van a `proyectos`; las 16 alternativas de ArtCraft (storytold: PhotoCraft, WordCraft, FigCraft, etc.) van a `programas`. Solo se descarga el código; las de ArtCraft las compilas tú con `cargo run --release`. Lo ya descargado no se toca |
 | Claude Desktop y puentes MCP | Repositorio apt de Anthropic; `vscode-mcp` y `blender-mcp` | Hay que abrir Claude Desktop e iniciar sesión a mano |
 | WinRAR | `p7zip-full`, `unrar` | |
 | Photoshop / CapCut / FL Studio | No existen en Linux | Alternativas: GIMP + Krita / Kdenlive o Concat / LMMS |

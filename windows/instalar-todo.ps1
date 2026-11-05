@@ -189,7 +189,7 @@ if (Test-Path $code) {
 # 6. Resumen
 # ---------------------------------------------------------------------
 # ---------------------------------------------------------------------
-# Rust estable + proyectos de GitHub (se clonan en <Escritorio>\proyectos)
+# Rust estable + proyectos de GitHub (tus repos en <Escritorio>\proyectos; las de ArtCraft en <Escritorio>\programas)
 # Va antes de los ajustes, que buscan drawengine ahi.
 # Si cambias esta lista, cambia tambien GH_PROYECTOS en linux\instalar-todo.sh.
 # Los de storytold son las alternativas open source de ArtCraft: solo se clona el codigo,
@@ -197,6 +197,7 @@ if (Test-Path $code) {
 # ---------------------------------------------------------------------
 Refrescar-Path
 $proyDir = Join-Path ([Environment]::GetFolderPath('Desktop')) 'proyectos'
+$progDir = Join-Path ([Environment]::GetFolderPath('Desktop')) 'programas'
 
 if (Get-Command rustup -ErrorAction SilentlyContinue) {
     Write-Host "`n=== Rust: toolchain estable ===" -ForegroundColor Yellow
@@ -214,7 +215,8 @@ if (-not $SinProyectos) {
         'norkles505/vs-code-mcp', 'norkles505/nodo-capture', 'norkles505/instalar-todo', 'norkles505/dontcutthat',
         'storytold/photocraft', 'storytold/vectorcraft', 'storytold/filmcraft', 'storytold/lightcraft',
         'storytold/pdfcraft', 'storytold/effectcraft', 'storytold/designcraft', 'storytold/wordcraft',
-        'storytold/soundcraft', 'storytold/deckcraft', 'storytold/cadcraft', 'storytold/gridcraft'
+        'storytold/soundcraft', 'storytold/deckcraft', 'storytold/cadcraft', 'storytold/gridcraft',
+        'storytold/figcraft', 'storytold/texturecraft', 'storytold/materialcraft', 'storytold/craft-anything'
     )
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         $fallos.Add('Proyectos de GitHub (git no esta instalado)')
@@ -224,7 +226,10 @@ if (-not $SinProyectos) {
         $env:GIT_TERMINAL_PROMPT = '0'
         foreach ($p in $ghProyectos) {
             $repo = $p.Split('/')[1]
-            $destino = Join-Path $proyDir $repo
+            # Las alternativas de ArtCraft (storytold) van a "programas"; tus repos, a "proyectos"
+            $base = if ($p.StartsWith('storytold/')) { $progDir } else { $proyDir }
+            New-Item -ItemType Directory $base -Force | Out-Null
+            $destino = Join-Path $base $repo
             if (Test-Path (Join-Path $destino '.git')) {
                 Write-Host "Ya esta descargado, no se toca: $destino"
                 continue

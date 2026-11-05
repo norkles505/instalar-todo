@@ -51,7 +51,7 @@ Además, el instalador deja listo esto (no hace falta para el agente ni la app A
 | Qué | Detalle |
 |---|---|
 | **Rust** | `Rustup` + `rustup default stable`. Para compilar necesita **Visual Studio Build Tools (C++)**, que el instalador también pone |
-| **Proyectos de GitHub** | Se clonan en `Escritorio\proyectos`: 12 repos tuyos (norkles505) + 12 alternativas de ArtCraft (storytold: PhotoCraft, WordCraft, etc.). Solo se descarga el código; las de ArtCraft las compilas tú con `cargo run --release`. Lo ya descargado no se toca. Se omiten con `-SinProyectos` |
+| **Proyectos de GitHub** | Se clonan en `Escritorio\proyectos` (12 repos tuyos, norkles505) y en `Escritorio\programas` (16 alternativas de ArtCraft, storytold: PhotoCraft, WordCraft, FigCraft, etc.). Solo se descarga el código; las de ArtCraft las compilas tú con `cargo run --release`. Lo ya descargado no se toca. Se omiten con `-SinProyectos` |
 
 Gradle **8.7**, Android Gradle Plugin **8.5.0** y Kotlin **1.9.24** NO se instalan a mano: el wrapper (`gradlew.bat`) los descarga la primera vez. Hace falta internet.
 

@@ -455,7 +455,8 @@ if quiero vscodeext; then
 fi
 
 # ---------------------------------------------------------------------
-# Proyectos de GitHub: se clonan en <Escritorio>/proyectos
+# Proyectos de GitHub: tus repos (norkles505) se clonan en <Escritorio>/proyectos y las
+# alternativas de ArtCraft (storytold) en <Escritorio>/programas
 # (va antes de los ajustes y de los puentes MCP, que buscan drawengine y vs-code-mcp ahi)
 # ---------------------------------------------------------------------
 # Si cambias esta lista, cambia tambien PROYECTOS_GH en instalar-todo-gui.py (el id es gh_<nombre>).
@@ -469,11 +470,17 @@ GH_PROYECTOS=(
     storytold/photocraft storytold/vectorcraft storytold/filmcraft storytold/lightcraft
     storytold/pdfcraft storytold/effectcraft storytold/designcraft storytold/wordcraft
     storytold/soundcraft storytold/deckcraft storytold/cadcraft storytold/gridcraft
+    storytold/figcraft storytold/texturecraft storytold/materialcraft storytold/craft-anything
 )
-PROY_DIR="$DESKTOP/proyectos"
+PROY_DIR="$DESKTOP/proyectos"     # tus repos (norkles505)
+PROG_DIR="$DESKTOP/programas"     # alternativas de ArtCraft (storytold)
 
 clonar_proyecto() {       # clonar_proyecto usuario/repo
-    local repo="${1##*/}" destino="$PROY_DIR/${1##*/}"
+    local repo="${1##*/}" base="$PROY_DIR" destino
+    # Las alternativas de ArtCraft (storytold) van a "programas"; tus repos, a "proyectos"
+    if [ "${1%%/*}" = "storytold" ]; then base="$PROG_DIR"; fi
+    destino="$base/$repo"
+    mkdir -p "$base" || return 1
     command -v git >/dev/null 2>&1 || { echo "git no esta instalado (marca tambien Git)."; return 1; }
     if [ -d "$destino/.git" ]; then
         echo "Ya esta descargado, no se toca: $destino"

@@ -31,6 +31,7 @@ from tkinter import messagebox, simpledialog, ttk
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(AQUI, "instalar-todo.sh")
+ACTUALIZAR = os.path.join(AQUI, "actualizar-artcraft.sh")
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 MAX_LINEAS = 6000
 HOME = os.path.expanduser("~")
@@ -70,12 +71,12 @@ PROYECTOS_GH = [
 ]
 
 # Alternativas de código abierto del proyecto ArtCraft (github.com/storytold). Solo se clona el
-# código fuente en la carpeta proyectos; lo compilas tú con cargo (mira el README de cada una).
+# código fuente en la carpeta programas; lo compilas tú con cargo (mira el README de cada una).
 # Si agregas o quitas una, haz lo mismo en la lista GH_PROYECTOS de instalar-todo.sh.
 GH_ARTCRAFT = "storytold"
 ARTCRAFT_GH = [
-    ("gh_" + repo, f"{nombre} (alternativa a {alt})",
-     f"{desc} Se descarga el código de github.com/{GH_ARTCRAFT}/{repo}; lo compilas tú con cargo. "
+    ("gh_" + repo, f"{nombre} (alternativa a {alt})" if alt else nombre,
+     f"{desc} Se descarga el código de github.com/{GH_ARTCRAFT}/{repo} en la carpeta programas del Escritorio; lo compilas tú con cargo. "
      "Está en desarrollo o en alfa.",
      ["git", "rust", "rustlibs"])
     for repo, nombre, alt, desc in [
@@ -92,8 +93,15 @@ ARTCRAFT_GH = [
         ("deckcraft", "DeckCraft", "PowerPoint", "Presentaciones y diapositivas."),
         ("cadcraft", "CADCraft", "AutoCAD", "Diseño y dibujo asistido por computadora (CAD)."),
         ("gridcraft", "GridCraft", "Excel", "Hojas de cálculo y análisis de datos."),
+        ("figcraft", "FigCraft", "Figma", "Diseño de interfaces y prototipos."),
+        ("texturecraft", "TextureCraft", "Substance Painter", "Pintura de texturas 3D."),
+        ("materialcraft", "MaterialCraft", "Substance Designer", "Materiales procedurales basados en nodos."),
+        ("craft-anything", "Craft Anything", None,
+         "Explora cómo funciona un software y construye tu propia versión."),
     ]
 ]
+
+IDS_ARTCRAFT = {i[0] for i in ARTCRAFT_GH}     # estos se clonan en "programas", no en "proyectos"
 
 # (id, nombre, para que sirve, [ids de los que depende])
 CATALOGO = [
@@ -239,7 +247,49 @@ def _escritorio():
     return os.path.join(HOME, "Desktop")
 
 
-def detectar_instalados(proyectos_dir):
+def _repo_artcraft(ruta, repos):
+    """Nombre de la app ArtCraft que es esta carpeta, o None.
+
+    Solo cuenta el origen en git (github.com/storytold/<app>). El nombre de la carpeta NO basta:
+    un proyecto tuyo llamado igual (por ejemplo texturecraft) no se confunde con el de ArtCraft."""
+    try:
+        with open(os.path.join(ruta, ".git", "config"), encoding="utf-8", errors="replace") as f:
+            config = f.read()
+    except OSError:
+        return None
+    m = re.search(r'\[remote "origin"\][^\[]*?url\s*=\s*\S*github\.com[:/]storytold/([\w.\-]+?)(?:\.git)?/?\s*$',
+                  config, re.M | re.I)
+    if m and m.group(1) in repos:
+        return m.group(1)
+    return None
+
+
+def localizar_artcraft(programas_dir, proyectos_dir):
+    """{app: ruta} de las apps de ArtCraft ya clonadas, esten en la carpeta que esten.
+
+    Busca en programas, proyectos, el Escritorio y la carpeta personal, y las reconoce por su
+    origen en git (github.com/storytold/<app>) o por el nombre de la carpeta."""
+    repos = {i[0][3:] for i in ARTCRAFT_GH}
+    encontrados = {}
+    docs = os.path.join(HOME, "Documentos")
+    for base in (programas_dir, proyectos_dir, _escritorio(),
+                 os.path.join(docs, "programas"), docs, os.path.join(HOME, "Documents", "programas"),
+                 os.path.join(HOME, "Documents"), HOME):
+        try:
+            nombres = sorted(os.listdir(base))
+        except OSError:
+            continue
+        for n in nombres:
+            ruta = os.path.join(base, n)
+            if not os.path.isdir(os.path.join(ruta, ".git")):
+                continue
+            repo = _repo_artcraft(ruta, repos)
+            if repo and repo not in encontrados:
+                encontrados[repo] = ruta
+    return encontrados
+
+
+def detectar_instalados(proyectos_dir, programas_dir):
     """Devuelve el conjunto de ids que ya estan instalados (comprobaciones rapidas, sin red)."""
     pruebas = {
         "git": lambda: _cmd("git"),
@@ -273,11 +323,16 @@ def detectar_instalados(proyectos_dir):
         "archivos": lambda: _cmd("7z"),
         "entorno": lambda: _en_bashrc("# >>> entorno-dev >>>"),
     }
-    # Un proyecto de GitHub cuenta como instalado si su carpeta ya es un repositorio git
+    # Un proyecto de GitHub cuenta como instalado si su carpeta ya es un repositorio git.
+    # Las apps de ArtCraft se buscan donde esten (programas, proyectos, Escritorio...).
+    artcraft = localizar_artcraft(programas_dir, proyectos_dir)
     for id_ in ORDEN:
         if id_.startswith("gh_"):
             repo = id_[3:]
-            pruebas[id_] = lambda r=repo: os.path.isdir(os.path.join(proyectos_dir, r, ".git"))
+            if id_ in IDS_ARTCRAFT:
+                pruebas[id_] = lambda r=repo: r in artcraft
+            else:
+                pruebas[id_] = lambda r=repo: os.path.isdir(os.path.join(proyectos_dir, r, ".git"))
 
     instalados = set()
     for id_, prueba in pruebas.items():
@@ -302,6 +357,7 @@ class App(tk.Tk):
         self.fallos = []
         self.captura = False
         self.cancelado = False
+        self.modo = "instalar"          # "instalar" o "actualizar" (botón Actualizar ArtCraft)
         self.total = 1
         self.vistos = 0
         self.vars = {}
@@ -310,6 +366,7 @@ class App(tk.Tk):
         self.badges = {}
         self.instalados = set()
         self.proyectos_dir = os.path.join(_escritorio(), "proyectos")
+        self.programas_dir = os.path.join(_escritorio(), "programas")
         self._ajustando = False
 
         self._fuentes()
@@ -407,6 +464,8 @@ class App(tk.Tk):
                                        command=self._empezar)
         self.btn_instalar.pack(side="right")
         ttk.Button(inf, text="Cerrar", command=self._cerrar).pack(side="right", padx=8)
+        self.btn_actualizar = ttk.Button(inf, text="Actualizar ArtCraft", command=self._actualizar_artcraft)
+        self.btn_actualizar.pack(side="right")
 
         # Barra de herramientas: buscador, plegar/desplegar y selecciones rapidas
         barra = ttk.Frame(self.sel, padding=(20, 8, 20, 0))
@@ -563,7 +622,7 @@ class App(tk.Tk):
             self.canvas.yview_moveto(0)
 
     def _refrescar_instalados(self):
-        self.instalados = detectar_instalados(self.proyectos_dir)
+        self.instalados = detectar_instalados(self.proyectos_dir, self.programas_dir)
         for id_, badge in self.badges.items():
             if id_ in self.instalados:
                 badge.pack(side="left", padx=(12, 0))
@@ -640,7 +699,8 @@ class App(tk.Tk):
 
         cab = ttk.Frame(self.prog, padding=(20, 16, 20, 4))
         cab.pack(fill="x")
-        ttk.Label(cab, text="Instalando...", style="Titulo.TLabel").pack(anchor="w")
+        self.titulo_prog = ttk.Label(cab, text="Instalando...", style="Titulo.TLabel")
+        self.titulo_prog.pack(anchor="w")
         self.estado = tk.StringVar(value="")
         ttk.Label(cab, textvariable=self.estado).pack(anchor="w", pady=(4, 0))
         self.barra = ttk.Progressbar(cab, mode="determinate", maximum=1)
@@ -714,6 +774,8 @@ class App(tk.Tk):
         cmd = ["bash", SCRIPT, "--solo=" + ",".join(elegidos)]
 
         self._limpiar_log()
+        self.modo = "instalar"
+        self.titulo_prog.configure(text="Instalando...")
         self.fallos = []
         self.captura = False
         self.cancelado = False
@@ -731,6 +793,56 @@ class App(tk.Tk):
                 text=True, errors="replace", bufsize=1, env=env, cwd=AQUI, start_new_session=True)
         except Exception as e:  # noqa: BLE001
             self._borrar_askpass()
+            self._mostrar(self.sel)
+            messagebox.showerror("No se pudo iniciar", str(e))
+            return
+        threading.Thread(target=self._leer, daemon=True).start()
+
+    def _actualizar_artcraft(self):
+        """Boton «Actualizar ArtCraft»: git pull + cargo build --release de cada app ya clonada."""
+        self._refrescar_instalados()
+        # {app: ruta}: busca cada app donde esté (programas, proyectos, Escritorio, carpeta personal)
+        rutas = localizar_artcraft(self.programas_dir, self.proyectos_dir)
+        presentes = [i for i in ORDEN if i in IDS_ARTCRAFT and i[3:] in rutas]
+        if not presentes:
+            messagebox.showinfo(
+                "Nada que actualizar",
+                "No encontré ninguna app de ArtCraft clonada (busqué en programas, proyectos, "
+                "el Escritorio, Documentos/programas y tu carpeta personal).\n\n"
+                "Instálalas primero desde la lista.")
+            return
+        if not os.path.isfile(ACTUALIZAR):
+            messagebox.showerror("Falta el script", f"No encuentro actualizar-artcraft.sh en:\n{AQUI}")
+            return
+        if not messagebox.askyesno(
+                "Actualizar ArtCraft",
+                f"Se actualizarán y recompilarán {len(presentes)} apps de ArtCraft, cada una "
+                "en la carpeta donde está clonada.\n\nSolo se recompilan las que tengan cambios nuevos, "
+                "pero compilar en Rust puede tardar varios minutos.\n\n¿Continuar?"):
+            return
+
+        env = dict(os.environ, PYTHONUNBUFFERED="1", TERM="dumb")
+        cmd = ["bash", ACTUALIZAR] + [f"{i[3:]}={rutas[i[3:]]}" for i in presentes]
+
+        self._limpiar_log()
+        self.modo = "actualizar"
+        self.titulo_prog.configure(text="Actualizando ArtCraft...")
+        self.fallos = []
+        self.captura = False
+        self.cancelado = False
+        self.total = len(presentes)
+        self.vistos = 0
+        self.barra.configure(maximum=self.total, value=0)
+        self.estado.set("Iniciando...")
+        self.btn_cancelar.configure(state="normal")
+        self.btn_volver.configure(state="disabled")
+        self._mostrar(self.prog)
+
+        try:
+            self.proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                text=True, errors="replace", bufsize=1, env=env, cwd=AQUI, start_new_session=True)
+        except Exception as e:  # noqa: BLE001
             self._mostrar(self.sel)
             messagebox.showerror("No se pudo iniciar", str(e))
             return
@@ -795,7 +907,7 @@ class App(tk.Tk):
             tag = "info"
         elif texto.startswith("!!"):
             tag = "error"
-        elif "Todo se instalo sin errores" in texto:
+        elif "Todo se instalo sin errores" in texto or "Todo se actualizo sin errores" in texto:
             tag = "ok"
 
         if "Esto fallo o hay que hacerlo a mano" in texto:
@@ -834,6 +946,18 @@ class App(tk.Tk):
             self._escribir("\n-- Instalación cancelada --\n", "error")
             return
         self.barra.configure(value=self.total)
+        if self.modo == "actualizar":
+            if rc == 0 and not self.fallos:
+                self.estado.set("Terminó: todas las apps están actualizadas.")
+                messagebox.showinfo("Actualización terminada",
+                                    "Las apps de ArtCraft se actualizaron y compilaron sin errores.")
+            else:
+                self.estado.set("Terminó con avisos. Revisa el resumen.")
+                detalle = "\n".join(f"  • {f}" for f in self.fallos) if self.fallos else f"Código de salida: {rc}"
+                messagebox.showwarning(
+                    "Actualización terminada con avisos",
+                    f"Esto falló:\n\n{detalle}\n\nEl registro tiene el detalle del error.")
+            return
         if rc == 0 and not self.fallos:
             self.estado.set("Terminó sin errores. Cierra sesión y vuelve a entrar.")
             messagebox.showinfo(
