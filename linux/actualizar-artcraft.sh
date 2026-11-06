@@ -7,11 +7,15 @@
 # enlace de ~/.local/bin, el acceso directo, los iconos y los tipos de archivo. Para el resto de
 # apps hace git pull + cargo build --release.
 #
-# USO:  ./actualizar-artcraft.sh [app=ruta ...]
+# Para el resto de apps, compila con compilar-artcraft.sh (al lado de este): cargo build --release
+# y deja el enlace en ~/.local/bin, la entrada del menu y el acceso directo del Escritorio.
+#
+# USO:  ./actualizar-artcraft.sh [--asociar] [app=ruta ...]
 #   Sin argumentos: busca en programas, proyectos, el Escritorio, Documentos y tu carpeta personal
 #   todos los repositorios cuyo origen sea github.com/storytold/<app> y los actualiza.
 #   Con «app=ruta» (como hace la ventana): actualiza justo esas rutas.
 #   Con solo «app»: la busca por su origen en git.
+#   --asociar: ademas registra cada app en «Abrir con» para sus tipos de archivo.
 # La ventana (instalar-todo-gui.py) lo llama con el boton «Actualizar ArtCraft».
 
 set -u
@@ -28,6 +32,9 @@ escritorio() {
 ESC=$(escritorio)
 DOCS=$(xdg-user-dir DOCUMENTS 2>/dev/null); [ -n "$DOCS" ] || DOCS="$HOME/Documents"
 BUSCAR=("$ESC/programas" "$ESC/proyectos" "$ESC" "$DOCS/programas" "$DOCS" "$HOME")
+# Carpetas elegidas en la ventana (INSTALAR_TODO_PROG / INSTALAR_TODO_PROY), si las hay: se buscan primero
+[ -n "${INSTALAR_TODO_PROY:-}" ] && BUSCAR=("$INSTALAR_TODO_PROY" "${BUSCAR[@]}")
+[ -n "${INSTALAR_TODO_PROG:-}" ] && BUSCAR=("$INSTALAR_TODO_PROG" "${BUSCAR[@]}")
 
 # origen_artcraft <carpeta>: imprime el nombre de la app si su origen es storytold/<app>
 origen_artcraft() {
@@ -54,7 +61,31 @@ localizar() {
   return 1
 }
 
-ITEMS=("$@")
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+# Opciones: --asociar (el resto de argumentos son apps)
+ASOCIAR=0
+ITEMS=()
+for arg in "$@"; do
+  if [ "$arg" = "--asociar" ]; then ASOCIAR=1; else ITEMS+=("$arg"); fi
+done
+
+# compilar_app <app> <ruta> <solo_acceso 0|1>: compila con compilar-artcraft.sh (deja enlace, menu
+# y acceso directo). Con solo_acceso=1 no compila: solo renueva el acceso directo.
+compilar_app() {
+  local c="$SCRIPT_DIR/compilar-artcraft.sh"
+  local a=(--ruta "$2" --repo "$1")
+  [ "$ASOCIAR" -eq 1 ] && a+=(--asociar)
+  if [ -f "$c" ]; then
+    [ "$3" -eq 1 ] && a+=(--solo-acceso)
+    bash "$c" "${a[@]}"
+    return $?
+  fi
+  # Sin compilar-artcraft.sh al lado: solo cargo, sin acceso directo
+  [ "$3" -eq 1 ] && return 0
+  echo ">> cargo build --release (puede tardar varios minutos)"
+  (cd "$2" && cargo build --release)
+}
 
 # Sin argumentos: descubre todas las apps de storytold que haya clonadas
 if [ ${#ITEMS[@]} -eq 0 ]; then
@@ -118,8 +149,15 @@ for item in "${ITEMS[@]}"; do
     fi
     despues=$(git -C "$ruta" rev-parse HEAD 2>/dev/null)
     # --sin-asociar: no cambia tus programas predeterminados en cada actualización
-    echo ">> compilar.sh --sin-asociar $repo"
-    if ! bash "$padre/compilar.sh" --sin-asociar "$repo"; then
+    # (si se pidió --asociar en este script, compilar.sh sí los registra)
+    if [ "$ASOCIAR" -eq 1 ]; then
+      echo ">> compilar.sh $repo"
+      bash "$padre/compilar.sh" "$repo"
+    else
+      echo ">> compilar.sh --sin-asociar $repo"
+      bash "$padre/compilar.sh" --sin-asociar "$repo"
+    fi
+    if [ $? -ne 0 ]; then
       echo "!! compilar.sh falló en $repo"
       FALLOS+=("$repo: la compilación falló (mira el error de arriba; puede faltar una librería)")
       continue
@@ -147,14 +185,15 @@ for item in "${ITEMS[@]}"; do
   fi
 
   # Si no hubo cambios y ya esta compilado, no se gasta tiempo recompilando
+  # (solo se renueva el acceso directo, por si se borro o la app es anterior a esta funcion)
   if [ "$antes" = "$despues" ] && [ -d target/release ]; then
     echo ">> Ya estaba al día."
+    compilar_app "$repo" "$ruta" 1
     SIN_CAMBIOS+=("$repo")
     continue
   fi
 
-  echo ">> cargo build --release (puede tardar varios minutos)"
-  if cargo build --release; then
+  if compilar_app "$repo" "$ruta" 0; then
     ACTUALIZADAS+=("$repo")
   else
     echo "!! La compilación falló en $repo"

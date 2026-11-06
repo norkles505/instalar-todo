@@ -27,7 +27,7 @@ import threading
 import tkinter as tk
 import tkinter.font as tkfont
 import unicodedata
-from tkinter import messagebox, simpledialog, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(AQUI, "instalar-todo.sh")
@@ -52,7 +52,7 @@ C = {
 GH_USER = "norkles505"
 PROYECTOS_GH = [
     ("gh_" + repo, repo,
-     f"Se descarga de github.com/{GH_USER}/{repo} en la carpeta proyectos del Escritorio." + extra,
+     f"Se descarga de github.com/{GH_USER}/{repo} en tu carpeta de proyectos (la eliges arriba; por defecto, proyectos en el Escritorio)." + extra,
      ["git"])
     for repo, extra in [
         ("paintcraft", ""),
@@ -67,6 +67,7 @@ PROYECTOS_GH = [
         ("nodo-capture", ""),
         ("instalar-todo", " Es este mismo instalador."),
         ("dontcutthat", ""),
+        ("gitcraft", ""),
     ]
 ]
 
@@ -76,7 +77,7 @@ PROYECTOS_GH = [
 GH_ARTCRAFT = "storytold"
 ARTCRAFT_GH = [
     ("gh_" + repo, f"{nombre} (alternativa a {alt})" if alt else nombre,
-     f"{desc} Se descarga el código de github.com/{GH_ARTCRAFT}/{repo} en la carpeta programas del Escritorio; lo compilas tú con cargo. "
+     f"{desc} Se descarga el código de github.com/{GH_ARTCRAFT}/{repo} en tu carpeta de programas (la eliges arriba; por defecto, programas en el Escritorio); lo compilas tú con cargo o con el botón Actualizar ArtCraft. "
      "Está en desarrollo o en alfa.",
      ["git", "rust", "rustlibs"])
     for repo, nombre, alt, desc in [
@@ -109,6 +110,9 @@ CATALOGO = [
         ("git", "Git",
          "Control de versiones: guarda el historial de tus proyectos y te permite clonar repositorios "
          "de GitHub. VS Code lo usa para su panel de control de código fuente.", []),
+        ("ghcli", "GitHub CLI (gh)",
+         "Herramienta de GitHub para la terminal. GitCraft la usa para iniciar sesión y trabajar con "
+         "tus repos (solo te falta iniciar sesión en Ajustes de GitCraft).", []),
         ("vscode", "Visual Studio Code",
          "Editor de código donde programas casi todo. Es lo que Claude usa, con el puente MCP, "
          "para ver y editar tus archivos.", []),
@@ -154,7 +158,8 @@ CATALOGO = [
     ("Alternativas open source (ArtCraft)", ARTCRAFT_GH),
     ("Claude y puentes MCP", [
         ("claude", "Claude Desktop (beta oficial)",
-         "La app de escritorio de Claude para Linux. Después de instalarla tienes que abrirla e iniciar "
+         "La app de escritorio de Claude para Linux. Al marcarla se marca también el puente "
+         "vscode-mcp (con VS Code, Node y Python). Después de instalarla tienes que abrirla e iniciar "
          "sesión.", []),
         ("vscodemcp", "Puente vscode-mcp",
          "Deja que Claude vea y edite los archivos de VS Code. Compila e instala la extensión y el "
@@ -195,6 +200,10 @@ CATALOGO = [
          ["python"]),
     ]),
 ]
+
+# Companeros: al marcar la clave, tambien se marcan estos (y lo que ellos necesiten).
+# No son dependencias: si luego desmarcas el companero a mano, se respeta.
+COMPANEROS = {"claude": ["vscodemcp"]}
 
 NOMBRES = {i[0]: i[1] for _, its in CATALOGO for i in its}
 REQS = {i[0]: i[3] for _, its in CATALOGO for i in its}
@@ -247,6 +256,14 @@ def _escritorio():
     return os.path.join(HOME, "Desktop")
 
 
+def _ruta_carpeta(texto, defecto):
+    """Ruta absoluta de lo que escribio el usuario (acepta ~); si esta vacio, la ruta por defecto."""
+    t = texto.strip().strip('"')
+    if not t:
+        return defecto
+    return os.path.abspath(os.path.expanduser(t))
+
+
 def _repo_artcraft(ruta, repos):
     """Nombre de la app ArtCraft que es esta carpeta, o None.
 
@@ -293,6 +310,7 @@ def detectar_instalados(proyectos_dir, programas_dir):
     """Devuelve el conjunto de ids que ya estan instalados (comprobaciones rapidas, sin red)."""
     pruebas = {
         "git": lambda: _cmd("git"),
+        "ghcli": lambda: _cmd("gh"),
         "vscode": lambda: _cmd("code"),
         "node": lambda: _cmd("node"),
         "python": lambda: os.path.isdir(os.path.join(HOME, ".venvs", "dev")),
@@ -454,6 +472,26 @@ class App(tk.Tk):
                        "Si marcas algo que necesita otro programa, se marca también."
                   ).pack(anchor="w", pady=(2, 0))
         ttk.Label(cab, wraplength=880, style="Sub.TLabel", text=BASE_TXT).pack(anchor="w")
+
+        # Carpetas donde se clonan los repos: proyectos (norkles505) y programas (ArtCraft)
+        self.var_proy = tk.StringVar(value=self.proyectos_dir)
+        self.var_prog = tk.StringVar(value=self.programas_dir)
+        cajas = ttk.Frame(cab)
+        cajas.pack(fill="x", pady=(10, 0))
+        filas = (("Carpeta de proyectos:", self.var_proy), ("Carpeta de programas:", self.var_prog))
+        for n, (texto, var) in enumerate(filas):
+            ttk.Label(cajas, text=texto).grid(row=n, column=0, sticky="w", pady=2)
+            ent = ttk.Entry(cajas, textvariable=var, width=58)
+            ent.grid(row=n, column=1, padx=8, pady=2, sticky="we")
+            ent.bind("<FocusOut>", lambda e: self._aplicar_carpetas())
+            ent.bind("<Return>", lambda e: self._aplicar_carpetas())
+            ttk.Button(cajas, text="Examinar...", style="Small.TButton",
+                       command=lambda v=var: self._elegir_carpeta(v)).grid(row=n, column=2, pady=2)
+        cajas.columnconfigure(1, weight=1)
+        ttk.Label(cab, wraplength=880, style="Sub.TLabel",
+                  text="Tus repos (norkles505) van a proyectos; las apps de ArtCraft (storytold), a programas. "
+                       "Se crean si no existen."
+                  ).pack(anchor="w", pady=(2, 0))
 
         # Barra inferior (se empaqueta antes del area con scroll para que no quede tapada)
         inf = ttk.Frame(self.sel, padding=(20, 10))
@@ -631,6 +669,28 @@ class App(tk.Tk):
         self._filtrar()
         self._actualizar_cuenta()
 
+    # ---- carpetas de proyectos y programas
+    def _aplicar_carpetas(self):
+        """Lee las dos cajas de carpeta; si cambiaron, vuelve a detectar lo ya instalado."""
+        esc = _escritorio()
+        p = _ruta_carpeta(self.var_proy.get(), os.path.join(esc, "proyectos"))
+        g = _ruta_carpeta(self.var_prog.get(), os.path.join(esc, "programas"))
+        self.var_proy.set(p)
+        self.var_prog.set(g)
+        if p != self.proyectos_dir or g != self.programas_dir:
+            self.proyectos_dir, self.programas_dir = p, g
+            self._refrescar_instalados()
+
+    def _elegir_carpeta(self, var):
+        ini = var.get()
+        while ini and not os.path.isdir(ini):
+            ini = os.path.dirname(ini)
+        ruta = filedialog.askdirectory(parent=self, title="Elige la carpeta (se crea si no existe)",
+                                       initialdir=ini or HOME, mustexist=False)
+        if ruta:
+            var.set(ruta)
+            self._aplicar_carpetas()
+
     # ---- logica de casillas y dependencias
     def _cambio(self, id_):
         if self._ajustando:
@@ -639,6 +699,7 @@ class App(tk.Tk):
         try:
             if self.vars[id_].get():
                 self._marcar_reqs(id_)
+                self._marcar_companeros(id_)
             else:
                 self._desmarcar_dependientes(id_)
         finally:
@@ -650,6 +711,12 @@ class App(tk.Tk):
             if not self.vars[r].get():
                 self.vars[r].set(True)
             self._marcar_reqs(r)
+
+    def _marcar_companeros(self, id_):
+        for c in COMPANEROS.get(id_, []):
+            if not self.vars[c].get():
+                self.vars[c].set(True)
+            self._marcar_reqs(c)
 
     def _desmarcar_dependientes(self, id_):
         for otro, reqs in REQS.items():
@@ -664,6 +731,7 @@ class App(tk.Tk):
                 self.vars[i].set(valor)
                 if valor:
                     self._marcar_reqs(i)
+                    self._marcar_companeros(i)
                 else:
                     self._desmarcar_dependientes(i)
         finally:
@@ -678,6 +746,7 @@ class App(tk.Tk):
             for i in ORDEN:
                 if self.vars[i].get():
                     self._marcar_reqs(i)
+                    self._marcar_companeros(i)
         finally:
             self._ajustando = False
         self._actualizar_cuenta()
@@ -739,6 +808,7 @@ class App(tk.Tk):
 
     # ===================================================== iniciar / detener
     def _empezar(self):
+        self._aplicar_carpetas()
         elegidos = self._elegidos()
         if not elegidos:
             messagebox.showinfo("Nada marcado", "Marca al menos un programa para instalar.")
@@ -771,7 +841,8 @@ class App(tk.Tk):
 
         env = dict(os.environ, SUDO_ASKPASS=ruta, INSTALAR_TODO_PW=pw,
                    INSTALAR_TODO_GUI="1", PYTHONUNBUFFERED="1", TERM="dumb")
-        cmd = ["bash", SCRIPT, "--solo=" + ",".join(elegidos)]
+        cmd = ["bash", SCRIPT, "--solo=" + ",".join(elegidos),
+               "--proyectos=" + self.proyectos_dir, "--programas=" + self.programas_dir]
 
         self._limpiar_log()
         self.modo = "instalar"
@@ -800,6 +871,7 @@ class App(tk.Tk):
 
     def _actualizar_artcraft(self):
         """Boton «Actualizar ArtCraft»: git pull + cargo build --release de cada app ya clonada."""
+        self._aplicar_carpetas()
         self._refrescar_instalados()
         # {app: ruta}: busca cada app donde esté (programas, proyectos, Escritorio, carpeta personal)
         rutas = localizar_artcraft(self.programas_dir, self.proyectos_dir)

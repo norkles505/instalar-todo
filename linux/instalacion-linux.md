@@ -40,13 +40,38 @@ Después de terminar: **cerrar sesión y volver a entrar** (para el PATH y los g
 | Unity Hub | Repositorio apt oficial de Unity | |
 | Rust | `rustup` (incluye `cargo`) | `~/.cargo/bin` |
 | Librerías para compilar apps Rust | apt: `libxkbcommon-dev`, `libwayland-dev`, `libx11-dev`, `libxrandr-dev`, `libxi-dev`, `libxcursor-dev`, `libgl1-mesa-dev`, `libgtk-3-dev`, `libfontconfig1-dev`, `libfreetype-dev`, `libasound2-dev`, `libssl-dev`, `libudev-dev` | Sin ellas `cargo` se detiene con errores tipo «no encuentro xkbcommon». Se marcan solas junto con las apps de ArtCraft |
-| Proyectos de GitHub | `git clone` en `~/Escritorio/proyectos` y `~/Escritorio/programas` | 12 repos tuyos (norkles505) van a `proyectos`; las 16 alternativas de ArtCraft (storytold: PhotoCraft, WordCraft, FigCraft, etc.) van a `programas`. Solo se descarga el código; las de ArtCraft las compilas tú con `cargo run --release`. Lo ya descargado no se toca |
+| Proyectos de GitHub | `git clone` en `~/Escritorio/proyectos` y `~/Escritorio/programas` | 12 repos tuyos (norkles505) van a `proyectos`; las 16 alternativas de ArtCraft (storytold: PhotoCraft, WordCraft, FigCraft, etc.) van a `programas`. Solo se descarga el código; las de ArtCraft se compilan con el botón «Actualizar ArtCraft» de la ventana (ver abajo). Lo ya descargado no se toca |
 | Claude Desktop y puentes MCP | Repositorio apt de Anthropic; `vscode-mcp` y `blender-mcp` | Hay que abrir Claude Desktop e iniciar sesión a mano |
 | WinRAR | `p7zip-full`, `unrar` | |
 | Photoshop / CapCut / FL Studio | No existen en Linux | Alternativas: GIMP + Krita / Kdenlive o Concat / LMMS |
 | Concat (alternativa a CapCut) | `.deb` de la última versión en GitHub Releases (el instalador lo busca solo) | Editor de video open source, en beta. Es un programa ya compilado: no hace falta compilarlo |
 | Intel Driver Assistant | No existe | Menú → Administrador de controladores |
 | Hypervisor de Windows | KVM | Activar VT-x/AMD-V en la BIOS; el script te agrega al grupo `kvm` |
+
+### Actualizar y compilar las apps de ArtCraft
+
+En la ventana, el botón **«Actualizar ArtCraft»** ejecuta `actualizar-artcraft.sh`, que con cada app de `github.com/storytold/<app>` que tengas clonada (en programas, proyectos, Escritorio, Documentos o tu carpeta personal):
+
+1. Hace `git pull --ff-only`.
+2. Si hubo cambios, o la app aún no estaba compilada, compila con `compilar-artcraft.sh` (`cargo build --release`). Si ya estaba al día, no recompila.
+3. Deja listo, para que no tengas que hacerlo a mano:
+   - un enlace en `~/.local/bin` (se abre desde la terminal con el nombre del binario);
+   - una entrada en el menú de aplicaciones (`~/.local/share/applications/artcraft-<app>.desktop`);
+   - un acceso directo en el Escritorio (marcado como de confianza con `gio` si está disponible).
+4. Muestra un resumen de actualizadas, sin cambios y fallidas.
+
+Si la carpeta de la app tiene al lado `actualizar.sh` y `compilar.sh` (como `Documentos/programas`), usa esos scripts en lugar de los anteriores.
+
+```bash
+./actualizar-artcraft.sh                 # todas las clonadas
+./actualizar-artcraft.sh --asociar       # además las registra en «Abrir con»
+./compilar-artcraft.sh --ruta ~/Escritorio/programas/wordcraft --repo wordcraft
+```
+
+- **Tipos de archivo (`--asociar`):** agrega `MimeType=` a la entrada del menú, así la app aparece en «Abrir con» para sus formatos (`.docx` para WordCraft, `.xlsx` para GridCraft, `.pptx` para DeckCraft, `.pdf` para PdfCraft, etc.). Son las mismas suposiciones que en Windows: la tabla `MIMES` está al inicio de `compilar-artcraft.sh`, corrígela si hace falta. **No** la pone como predeterminada: eso lo eliges tú una vez (clic derecho en un archivo → Abrir con → Elegir otra aplicación → Recordar). Si ya la asociaste, renovar el acceso directo sin `--asociar` conserva la asociación. La ventana no tiene casilla para esto; solo funciona desde terminal.
+- **Icono:** usa el primero que encuentre en el repo (`packaging/linux`, `assets/icon.png`…); si no hay, uno genérico del sistema.
+- **Requisitos:** Rust, las librerías para compilar apps Rust y `python3` (para leer `cargo metadata`).
+- **Seguridad:** nunca toca una carpeta cuyo origen en git no sea `storytold/<app>`.
 
 Gradle 8.7, AGP 8.5.0 y Kotlin 1.9.24 los descarga el wrapper (`./gradlew`) la primera vez. Hace falta internet.
 

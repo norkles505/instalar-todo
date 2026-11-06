@@ -20,10 +20,14 @@
 
 SOLO_DEV=0
 SELECCION=""          # vacio = todo; si no, lista ",id1,id2," con lo elegido
+ARG_PROY=""           # carpeta de proyectos elegida (--proyectos=RUTA); vacio = <Escritorio>/proyectos
+ARG_PROG=""           # carpeta de programas elegida (--programas=RUTA); vacio = <Escritorio>/programas
 for arg in "$@"; do
     case "$arg" in
         --solo-desarrollo) SOLO_DEV=1 ;;
         --solo=*)          SELECCION=",${arg#--solo=}," ;;
+        --proyectos=*)     ARG_PROY="${arg#--proyectos=}" ;;
+        --programas=*)     ARG_PROG="${arg#--programas=}" ;;
     esac
 done
 
@@ -79,6 +83,17 @@ DOCS="$(xdg-user-dir DOCUMENTS 2>/dev/null || echo "$HOME/Documents")"
 MCP_DIR="$DOCS/MCP"
 SDK="$HOME/Android/android-sdk"
 
+# Donde se clonan tus repos (norkles505) y las apps de ArtCraft (storytold).
+# Por defecto en el Escritorio; se cambian con --proyectos=RUTA y --programas=RUTA
+# (la ventana pasa estas opciones). Un "~" al principio se expande a tu carpeta personal.
+PROY_DIR="${ARG_PROY:-$DESKTOP/proyectos}"
+PROG_DIR="${ARG_PROG:-$DESKTOP/programas}"
+case "$PROY_DIR" in "~"|"~/"*) PROY_DIR="$HOME${PROY_DIR#\~}" ;; esac
+case "$PROG_DIR" in "~"|"~/"*) PROG_DIR="$HOME${PROG_DIR#\~}" ;; esac
+PROY_DIR="${PROY_DIR%/}"; PROG_DIR="${PROG_DIR%/}"
+echo "Carpeta de proyectos: $PROY_DIR"
+echo "Carpeta de programas: $PROG_DIR"
+
 export ANDROID_HOME="$SDK"
 export PATH="$SDK/platform-tools:$SDK/emulator:$SDK/cmdline-tools/latest/bin:$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.npm-global/bin:$HOME/.dotnet:$PATH"
 
@@ -112,6 +127,10 @@ sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flat
 if quiero git; then
     componente git "Git"
     apt_instalar "Git" git
+fi
+if quiero ghcli; then
+    componente ghcli "GitHub CLI (gh)"
+    apt_instalar "GitHub CLI" gh
 fi
 if quiero dotnet; then
     componente dotnet ".NET SDK 10"
@@ -467,13 +486,13 @@ GH_PROYECTOS=(
     norkles505/paintcraft norkles505/meshcraft norkles505/keyboardmovil norkles505/YTDownloader
     norkles505/ar-drawing norkles505/paintcraft-PC norkles505/drawengine norkles505/dont-cut-that
     norkles505/vs-code-mcp norkles505/nodo-capture norkles505/instalar-todo norkles505/dontcutthat
+    norkles505/gitcraft
     storytold/photocraft storytold/vectorcraft storytold/filmcraft storytold/lightcraft
     storytold/pdfcraft storytold/effectcraft storytold/designcraft storytold/wordcraft
     storytold/soundcraft storytold/deckcraft storytold/cadcraft storytold/gridcraft
     storytold/figcraft storytold/texturecraft storytold/materialcraft storytold/craft-anything
 )
-PROY_DIR="$DESKTOP/proyectos"     # tus repos (norkles505)
-PROG_DIR="$DESKTOP/programas"     # alternativas de ArtCraft (storytold)
+# PROY_DIR (tus repos, norkles505) y PROG_DIR (alternativas de ArtCraft, storytold) se definen arriba.
 
 clonar_proyecto() {       # clonar_proyecto usuario/repo
     local repo="${1##*/}" base="$PROY_DIR" destino
@@ -516,7 +535,7 @@ if quiero ajustes; then
     componente ajustes "Preparar tus proyectos (copiados de Windows)"
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROY=""
-    for c in "$DESKTOP/proyectos" "$HOME/proyectos" "$HOME/Desktop/proyectos" "$(dirname "$SCRIPT_DIR")" "$SCRIPT_DIR"; do
+    for c in "$PROY_DIR" "$DESKTOP/proyectos" "$HOME/proyectos" "$HOME/Desktop/proyectos" "$(dirname "$SCRIPT_DIR")" "$SCRIPT_DIR"; do
         if [ -d "$c/drawengine" ]; then PROY="$c"; break; fi
     done
 
@@ -582,9 +601,9 @@ if quiero blendermcp; then
         sh /tmp/uv-install.sh
         local bm
         # Busca blender-mcp en Documentos/MCP o en proyectos (prefiere la subcarpeta linux/ si existe)
-        bm="$(find "$MCP_DIR" "$DESKTOP/proyectos" -maxdepth 4 -type d -path '*blender-mcp/linux' 2>/dev/null | head -n1)"
+        bm="$(find "$MCP_DIR" "$PROY_DIR" "$DESKTOP/proyectos" -maxdepth 4 -type d -path '*blender-mcp/linux' 2>/dev/null | head -n1)"
         if [ -z "$bm" ]; then
-            bm="$(find "$MCP_DIR" "$DESKTOP/proyectos" -maxdepth 3 -type d -name blender-mcp 2>/dev/null | head -n1)"
+            bm="$(find "$MCP_DIR" "$PROY_DIR" "$DESKTOP/proyectos" -maxdepth 3 -type d -name blender-mcp 2>/dev/null | head -n1)"
         fi
         if [ -z "$bm" ] || [ ! -f "$bm/pyproject.toml" ]; then
             echo "No encontre la carpeta blender-mcp (con pyproject.toml). Copiala y ejecuta: uv tool install --force <esa carpeta>"
@@ -601,18 +620,19 @@ if quiero vscodemcp; then
     instalar_vscode_mcp() {
         local d="" c
         local SD; SD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-        for c in "$DESKTOP/proyectos/vs-code-mcp/linux" "$HOME/proyectos/vs-code-mcp/linux" \
+        for c in "$PROY_DIR/vs-code-mcp/linux" "$DESKTOP/proyectos/vs-code-mcp/linux" "$HOME/proyectos/vs-code-mcp/linux" \
                  "$(dirname "$(dirname "$SD")")/vs-code-mcp/linux" "$MCP_DIR/vscode-mcp/linux" "$MCP_DIR/vscode-mcp"; do
             if [ -f "$c/install.sh" ] && [ -d "$c/extension" ] && [ -d "$c/server" ]; then d="$c"; break; fi
         done
         if [ -z "$d" ]; then
             local f
-            f="$(find "$DESKTOP/proyectos" -maxdepth 4 -path '*vs-code-mcp/linux/install.sh' 2>/dev/null | head -n1)"
+            f="$(find "$PROY_DIR" "$DESKTOP/proyectos" -maxdepth 4 -path '*vs-code-mcp/linux/install.sh' 2>/dev/null | head -n1)"
             if [ -n "$f" ]; then d="$(dirname "$f")"; fi
         fi
         if [ -z "$d" ]; then
-            echo "No encontre vs-code-mcp/linux (con install.sh). Copia esa carpeta y ejecuta ./install.sh dentro de ella."
-            return 0
+            echo "No encontre la carpeta vs-code-mcp/linux (con install.sh). Descargala (git clone https://github.com/norkles505/vs-code-mcp)"
+            echo "o copiala a Escritorio/proyectos/, y luego ejecuta ./install.sh dentro de vs-code-mcp/linux."
+            return 1     # cuenta como fallo: sale en el resumen en vez de pasar como exito
         fi
         echo "Instalando vscode-mcp desde: $d"
         bash "$d/install.sh"
