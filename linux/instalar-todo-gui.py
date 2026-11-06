@@ -50,8 +50,11 @@ C = {
 # Proyectos que se clonan de GitHub en la carpeta "proyectos" del Escritorio.
 # Si agregas o quitas uno, haz lo mismo en la lista GH_PROYECTOS de instalar-todo.sh.
 GH_USER = "norkles505"
+# Tu texturecraft se llama igual que la de ArtCraft (storytold): lleva un id propio para que una
+# casilla no marque las dos y la detección de «ya instalado» no se confunda. {repo: id}
+IDS_ESPECIALES = {"texturecraft": "gh_norkles505-texturecraft"}
 PROYECTOS_GH = [
-    ("gh_" + repo, repo,
+    (IDS_ESPECIALES.get(repo, "gh_" + repo), repo,
      f"Se descarga de github.com/{GH_USER}/{repo} en tu carpeta de proyectos (la eliges arriba; por defecto, proyectos en el Escritorio)." + extra,
      ["git"])
     for repo, extra in [
@@ -68,6 +71,7 @@ PROYECTOS_GH = [
         ("instalar-todo", " Es este mismo instalador."),
         ("dontcutthat", ""),
         ("gitcraft", ""),
+        ("texturecraft", " Es tu repo propio; no es la alternativa de ArtCraft que se llama igual."),
     ]
 ]
 
@@ -346,7 +350,8 @@ def detectar_instalados(proyectos_dir, programas_dir):
     artcraft = localizar_artcraft(programas_dir, proyectos_dir)
     for id_ in ORDEN:
         if id_.startswith("gh_"):
-            repo = id_[3:]
+            # la carpeta es el nombre del repo (quita el prefijo norkles505- del id propio)
+            repo = re.sub(r"^norkles505-", "", id_[3:])
             if id_ in IDS_ARTCRAFT:
                 pruebas[id_] = lambda r=repo: r in artcraft
             else:

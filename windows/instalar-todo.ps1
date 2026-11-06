@@ -336,7 +336,7 @@ if (Quiero-Repos) {
     $ghProyectos = @(
         'norkles505/paintcraft', 'norkles505/meshcraft', 'norkles505/keyboardmovil', 'norkles505/YTDownloader',
         'norkles505/ar-drawing', 'norkles505/paintcraft-PC', 'norkles505/drawengine', 'norkles505/dont-cut-that',
-        'norkles505/vs-code-mcp', 'norkles505/nodo-capture', 'norkles505/instalar-todo', 'norkles505/dontcutthat', 'norkles505/gitcraft',
+        'norkles505/vs-code-mcp', 'norkles505/nodo-capture', 'norkles505/instalar-todo', 'norkles505/dontcutthat', 'norkles505/gitcraft', 'norkles505/texturecraft',
         'storytold/photocraft', 'storytold/vectorcraft', 'storytold/filmcraft', 'storytold/lightcraft',
         'storytold/pdfcraft', 'storytold/effectcraft', 'storytold/designcraft', 'storytold/wordcraft',
         'storytold/soundcraft', 'storytold/deckcraft', 'storytold/cadcraft', 'storytold/gridcraft',
@@ -350,7 +350,10 @@ if (Quiero-Repos) {
         $env:GIT_TERMINAL_PROMPT = '0'
         foreach ($p in $ghProyectos) {
             $repo = $p.Split('/')[1]
-            if (-not (Quiero ('gh_' + $repo))) { continue }
+            # tu texturecraft (norkles505) se llama igual que la de ArtCraft (storytold): lleva un id aparte
+            $idRepo = 'gh_' + $repo
+            if ($p -eq 'norkles505/texturecraft') { $idRepo = 'gh_norkles505-texturecraft' }
+            if (-not (Quiero $idRepo)) { continue }
             Titulo "Clonar $repo"
             # Las alternativas de ArtCraft (storytold) van a "programas"; tus repos, a "proyectos"
             $base = if ($p.StartsWith('storytold/')) { $progDir } else { $proyDir }

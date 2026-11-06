@@ -486,13 +486,22 @@ GH_PROYECTOS=(
     norkles505/paintcraft norkles505/meshcraft norkles505/keyboardmovil norkles505/YTDownloader
     norkles505/ar-drawing norkles505/paintcraft-PC norkles505/drawengine norkles505/dont-cut-that
     norkles505/vs-code-mcp norkles505/nodo-capture norkles505/instalar-todo norkles505/dontcutthat
-    norkles505/gitcraft
+    norkles505/gitcraft norkles505/texturecraft
     storytold/photocraft storytold/vectorcraft storytold/filmcraft storytold/lightcraft
     storytold/pdfcraft storytold/effectcraft storytold/designcraft storytold/wordcraft
     storytold/soundcraft storytold/deckcraft storytold/cadcraft storytold/gridcraft
     storytold/figcraft storytold/texturecraft storytold/materialcraft storytold/craft-anything
 )
 # PROY_DIR (tus repos, norkles505) y PROG_DIR (alternativas de ArtCraft, storytold) se definen arriba.
+
+# id de la casilla de cada repo: gh_<repo>. Tu texturecraft (norkles505) se llama igual que la
+# de ArtCraft (storytold), asi que lleva un id aparte para no marcar las dos con una sola casilla.
+id_gh() {                 # id_gh usuario/repo
+    case "$1" in
+        norkles505/texturecraft) echo "gh_norkles505-texturecraft" ;;
+        *) echo "gh_${1##*/}" ;;
+    esac
+}
 
 clonar_proyecto() {       # clonar_proyecto usuario/repo
     local repo="${1##*/}" base="$PROY_DIR" destino
@@ -515,14 +524,14 @@ clonar_proyecto() {       # clonar_proyecto usuario/repo
 
 hay_proyectos=0
 for p in "${GH_PROYECTOS[@]}"; do
-    if quiero "gh_${p##*/}"; then hay_proyectos=1; break; fi
+    if quiero "$(id_gh "$p")"; then hay_proyectos=1; break; fi
 done
 if [ "$hay_proyectos" -eq 1 ]; then
     info "Creando la carpeta de proyectos: $PROY_DIR"
     mkdir -p "$PROY_DIR" || fallo "No se pudo crear la carpeta $PROY_DIR"
     for p in "${GH_PROYECTOS[@]}"; do
-        if quiero "gh_${p##*/}"; then
-            componente "gh_${p##*/}" "Proyecto de GitHub: $p"
+        if quiero "$(id_gh "$p")"; then
+            componente "$(id_gh "$p")" "Proyecto de GitHub: $p"
             paso "Clonar $p" clonar_proyecto "$p"
         fi
     done

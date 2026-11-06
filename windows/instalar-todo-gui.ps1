@@ -42,10 +42,11 @@ $proyectosGh = @(
     @('vs-code-mcp', ' Lo usa "Puente vscode-mcp" para compilar e instalar el puente.'),
     @('nodo-capture', ''),
     @('instalar-todo', ' Es este mismo instalador.'),
-    @('dontcutthat', ''), @('gitcraft', '')
+    @('dontcutthat', ''), @('gitcraft', ''),
+    @('texturecraft', ' Es tu repo propio; no es la alternativa de ArtCraft que se llama igual.', 'gh_norkles505-texturecraft')
 )
 $itemsProyectos = @(foreach ($p in $proyectosGh) {
-    Item ('gh_' + $p[0]) ($p[0]) ("Se descarga de github.com/norkles505/$($p[0]) en tu carpeta de proyectos (la eliges arriba; por defecto, proyectos en el Escritorio)." + $p[1]) @('git')
+    Item $(if ($p.Count -gt 2) { $p[2] } else { 'gh_' + $p[0] }) ($p[0]) ("Se descarga de github.com/norkles505/$($p[0]) en tu carpeta de proyectos (la eliges arriba; por defecto, proyectos en el Escritorio)." + $p[1]) @('git')
 })
 
 # Alternativas open source de ArtCraft (github.com/storytold): solo se clona el codigo en la
@@ -175,9 +176,9 @@ function Detectar([string]$id) {
             # Apps de ArtCraft: instaladas si estan clonadas en cualquier carpeta (se reconocen por su origen en git)
             if ($id.StartsWith('gh_') -and $script:artcraftRutas.ContainsKey($id.Substring(3))) { return $true }
             # Repos de GitHub (gh_<repo>): instalado si la carpeta ya es un repositorio git
-            if ($id.StartsWith('gh_')) {
-                # (las apps de ArtCraft ya se resolvieron arriba, asi que aqui solo quedan tus repos)
-                if (Test-Path (Join-Path (Join-Path $script:dirProyectos $id.Substring(3)) '.git')) { return $true }
+            # (una app de ArtCraft que no esta clonada NO se busca en proyectos: tu texturecraft se llama igual)
+            if ($id.StartsWith('gh_') -and (@($artcraftGh | Where-Object { ('gh_' + $_[0]) -eq $id }).Count -eq 0)) {
+                if (Test-Path (Join-Path (Join-Path $script:dirProyectos ($id.Substring(3) -replace '^norkles505-', '')) '.git')) { return $true }
             }
             return $false
         }
